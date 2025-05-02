@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import Web3 from "web3";
+import PatientRegistration from "../build/contracts/PatientRegistration.json";
+import { useParams } from "react-router-dom";
 
 const GrantPermissions = () => {
+  const { hhNumber } = useParams(); // Patient's HH number
   const [doctorHHNumber, setDoctorHHNumber] = useState("");
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -23,11 +26,28 @@ const GrantPermissions = () => {
         const web3 = new Web3(window.ethereum);
         const accounts = await web3.eth.requestAccounts();
 
-        // Simulate granting access (you can replace this with actual smart contract logic)
-        console.log("Granting access to doctor HH number:", doctorHHNumber);
-        console.log("Transaction initiated by account:", accounts[0]);
+        const networkId = await web3.eth.net.getId();
+        const deployedNetwork = PatientRegistration.networks[networkId];
+        const contract = new web3.eth.Contract(
+          PatientRegistration.abi,
+          deployedNetwork && deployedNetwork.address
+        );
 
-        // Simulate success
+        // 1. Check if doctor exists
+        const isDoctor = await contract.methods.isDoctorRegistered(doctorHHNumber).call();
+        console.log("Doctor exists?", isDoctor);
+
+        if (!isDoctor) {
+          setError("Doctor HH number not found.");
+          return;
+        }
+
+        // 2. Grant permission
+        await contract.methods.grantDoctorPermission(hhNumber, doctorHHNumber).send({
+          from: accounts[0],
+          gas: 200000,
+        });
+
         setSuccess(`Access granted to doctor with HH number: ${doctorHHNumber}`);
         setError(null);
       } else {

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Web3 from "web3";
-import { create as ipfsHttpClient } from "ipfs-http-client";
+import axios from "axios";
 import PatientRegistration from "../build/contracts/PatientRegistration.json";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
-const ipfs = ipfsHttpClient({ url: "https://ipfs.io" }); // Or use Infura
+const PINATA_API_KEY = process.env.REACT_APP_PINATA_API_KEY;
+const PINATA_API_SECRET = process.env.REACT_APP_PINATA_API_SECRET;
 
 const UploadHR = () => {
-  const { hhNumber } = useParams(); // Get patient HH number from URL
+  const { hhNumber } = useParams();
+  const navigate = useNavigate();
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
   const [file, setFile] = useState(null);
@@ -52,20 +54,45 @@ const UploadHR = () => {
     }
     setIsLoading(true);
     try {
-      // 1. Upload file to IPFS
-      const added = await ipfs.add(file);
-      const ipfsHash = added.path;
+      // Check if patient is registered
+      const isRegistered = await contract.methods.isPatientRegistered(hhNumber).call();
+      console.log("Is patient registered?", isRegistered);
+      if (!isRegistered) {
+        setError("Patient is not registered.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 1. Upload file to Pinata (IPFS)
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
+        maxContentLength: "Infinity",
+        headers: {
+          "Content-Type": "multipart/form-data",
+          pinata_api_key: PINATA_API_KEY,
+          pinata_secret_api_key: PINATA_API_SECRET,
+        },
+      });
+
+      const cid = res.data.IpfsHash;
 
       // 2. Get accounts from MetaMask
       await window.ethereum.request({ method: "eth_requestAccounts" });
       const accounts = await web3.eth.getAccounts();
 
       // 3. Call smart contract to store the record
-      // Replace 'uploadRecord' with your actual method name and arguments
-      await contract.methods.uploadRecord(hhNumber, ipfsHash).send({ from: accounts[0] });
+      await contract.methods.uploadRecord(hhNumber, cid).send({
+        from: accounts[0],
+        gas: 300000 // You can increase this value if needed
+      });
 
-      setSuccess("File uploaded to IPFS and saved on blockchain!");
+      setSuccess("File uploaded to IPFS (Pinata) and saved on blockchain!");
       setError(null);
+
+      // 4. Redirect to Patient Dashboard
+      navigate(`/patient/${hhNumber}`);
     } catch (err) {
       console.error("Error uploading file:", err);
       setError("An error occurred while uploading the file.");
