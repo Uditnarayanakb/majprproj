@@ -56,10 +56,14 @@ const Doctorform = () => {
       const accounts = await web3.eth.getAccounts();
       const sender = accounts[0];
 
-      // Use doctor's name or address as needed
-      await contract.methods
-        .addPrescription(hhNumber, diagnosis, prescription, doctorAddress)
-        .send({ from: sender, gas: 200000 });
+      // Use addPatientRecord to store diagnosis and prescription
+      await contract.methods.addPatientRecord(
+        hhNumber, // string
+        new Date().toISOString().slice(0, 10), // string (date)
+        `Diagnosis: ${diagnosis}\nPrescription: ${prescription}`, // string (description)
+        doctorAddress, // string (doctor wallet)
+        "" // string (IPFS hash, empty for text-only)
+      ).send({ from: sender, gas: 200000 });
 
       alert("Prescription record created!");
       navigate(-1);
@@ -93,7 +97,6 @@ const Doctorform = () => {
                   <label className="block text-white font-semibold mb-1">Gender:</label>
                   <div className="bg-gray-700 text-yellow-400 px-3 py-2 rounded">{patientDetails.gender || "Loading..."}</div>
                 </div>
-
               </div>
               {/* Right Column */}
               <div className="space-y-4">
