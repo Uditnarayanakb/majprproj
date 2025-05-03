@@ -1,24 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Web3 from "web3";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import NavBar_Logout from "./NavBar_Logout";
 import PatientRegistration from "../build/contracts/PatientRegistration.json";
 
-const DoctorViewPatient = () => {
-  const { hhNumber } = useParams(); // Retrieve the hhNumber from the URL parameter
+const DoctorViewRecords = () => {
+  const { hhNumber } = useParams();
   const navigate = useNavigate();
-
-  const doctorForm = () => {
-    navigate("/doctor/"+hhNumber+"/doctorform");
-  };
-
-  const viewPatientRecords = () => {
-    navigate("/patient/"+hhNumber+"/viewrecords");
-  };
-
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
-  const [patientDetails, setPatientDetails] = useState(null);
+  const [fileRecords, setFileRecords] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -31,83 +22,97 @@ const DoctorViewPatient = () => {
         const deployedNetwork = PatientRegistration.networks[networkId];
         const contractInstance = new web3Instance.eth.Contract(
           PatientRegistration.abi,
-          deployedNetwork && deployedNetwork.address,
+          deployedNetwork && deployedNetwork.address
         );
         setContract(contractInstance);
+
         try {
-          const result = await contractInstance.methods.getPatientDetails(hhNumber).call();
-          setPatientDetails(result);
-        } catch (error) {
-          console.error('Error retrieving patient details:', error);
-          setError('Error retrieving patient details');
+          // Fetch file records (array of CIDs) from the smart contract
+          const records = await contractInstance.methods
+            .getFileRecords(hhNumber)
+            .call();
+          setFileRecords(records);
+        } catch (err) {
+          console.error("Error fetching file records:", err);
+          setError("Error fetching file records");
         }
       } else {
-        console.log('Please install MetaMask extension');
-        setError('Please install MetaMask extension');
+        setError("Please install MetaMask extension");
       }
     };
 
     init();
   }, [hhNumber]);
 
-  const cancelOperation = () => {
-    navigate(-1);
+  // Helper to get a fake timestamp (since only CID is stored, unless you store timestamp too)
+  const getFakeTimestamp = (index) => {
+    const date = new Date(Date.now() - index * 5 * 60 * 1000);
+    return date.toLocaleString();
+  };
+
+  const handleDelete = async (index) => {
+    if (!contract) return;
+    try {
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = await web3.eth.getAccounts();
+      await contract.methods.deleteFileRecord(hhNumber, index).send({ from: accounts[0], gas: 200000 });
+      setFileRecords((prev) => prev.filter((_, i) => i !== index));
+    } catch (err) {
+      setError("Error deleting file record");
+      console.error(err);
+    }
   };
 
   return (
     <div>
-    <NavBar_Logout></NavBar_Logout>
-    <div className="bg-b to-gray-500 p-4 sm:p-10 font-mono text-white h-30 flex flex-col justify-center items-center">
-      <h2 className="text-2xl sm:text-4xl font-bold mb-6">Patient's Profile</h2>
-      <br/>
-        {patientDetails && (
-          <center>
-          <p className="text-xl sm:text-3xl mb-20">
-          Name : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.name}</span>{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
-          DOB : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.dateOfBirth}</span>{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
-          Gender : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.gender}</span>
-          <br />
-          <br />
-          BloodGroup : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.bloodGroup}</span>{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
-          Address : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.homeAddress}</span>{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
-            <br></br><br></br>
-          Email-Id : {" "}
-            <span className="font-bold text-yellow-500">{patientDetails.email}</span>
-        </p>
-        </center>
-      )}
-      </div>
-      <div>
-      <center>
-      <button
-            onClick={viewPatientRecords}
-            className="my-2 px-4 sm:px-8 py-4 sm:py-5 w-full sm:w-1/4 rounded-lg bg-teal-500 hover:bg-gray-600 transition-colors duration-300"
-          >
-            View Record
-          </button>
-          {"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
+      <NavBar_Logout />
+      <div className="bg-gradient-to-b from-black to-gray-800 text-white p-10 font-mono min-h-screen">
+        <h1 className="text-center text-3xl mb-6">Patient Uploaded Files</h1>
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        {fileRecords.length > 0 ? (
+          <div className="space-y-4">
+            {fileRecords.map((cid, index) => (
+              <div
+                key={index}
+                className="bg-gray-700 p-6 rounded-lg shadow-lg flex justify-between items-center"
+              >
+                <div>
+                  <p className="text-lg font-bold">Record: {index + 1}</p>
+                  <p className="text-md">Uploaded: {getFakeTimestamp(index)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition duration-300"
+                    onClick={() =>
+                      window.open(`https://ipfs.io/ipfs/${cid}`, "_blank")
+                    }
+                  >
+                    View
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300"
+                    onClick={() => handleDelete(index)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-xl">No uploaded files found for this patient.</p>
+        )}
+        <div className="flex justify-center mt-8">
           <button
-          onClick={doctorForm}
-          className="my-2 px-4 sm:px-8 py-4 sm:py-5 w-full sm:w-1/4 rounded-lg bg-teal-500 hover:bg-gray-600 transition-colors duration-300"
+            className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-300"
+            onClick={() => navigate(-1)}
           >
-          Prescription Consultancy
+            Back
           </button>
-          {"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}
-          <button
-            onClick={cancelOperation}
-            className="my-2 px-4 sm:px-8 py-4 sm:py-5 w-full sm:w-1/4 rounded-lg bg-teal-500 hover:bg-gray-600 transition-colors duration-300"
-          >
-            Close
-          </button>
-        </center>
+        </div>
       </div>
-      </div>
+    </div>
   );
 };
 
-export default DoctorViewPatient;
+export default DoctorViewRecords;

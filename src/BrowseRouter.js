@@ -23,6 +23,8 @@ import ViewDiagnosticProfile from "./components/ViewDiagnosticProfile";
 import AboutUs from "./components/AboutPage";
 import UploadHR from "./components/UploadHR";
 import GrantPermissions from "./components/GrantPermissions"; // <-- Add this
+import Doctorform from "./components/Doctorform"; // <-- Import Doctorform
+import DoctorViewPatient from "./components/DoctorViewPatient"; // <-- Import DoctorViewPatient
 
 const BrowseRouter = () => {
   const [web3, setWeb3] = useState(null);
@@ -52,13 +54,12 @@ const BrowseRouter = () => {
   }, []);
   return (
     <BrowserRouter>
-
       <Routes>
-      <Route path="/AboutPage" element={<AboutUs></AboutUs>}></Route>
+        <Route path="/AboutPage" element={<AboutUs></AboutUs>}></Route>
 
         <Route path="/" element={<LandingPage_1></LandingPage_1>}></Route>
         <Route path="/register" element={<RegisterPage></RegisterPage>}></Route>
-        
+
         <Route
           path="/patient_registration"
           element={<PatientRegistry></PatientRegistry>}
@@ -79,7 +80,7 @@ const BrowseRouter = () => {
           path="/doctor_login"
           element={<DoctorLogin></DoctorLogin>}
         ></Route>
-      
+
         <Route
           path="/diagnostic_login"
           element={<DiagnosticLogin></DiagnosticLogin>}
@@ -112,13 +113,12 @@ const BrowseRouter = () => {
         element={<DiagnosticForm></DiagnosticForm>}>
         </Route>
 
-       
         <Route
           path="/doctor/:hhNumber/patientlist"
           element={<ViewPatientList />}
         ></Route>
-       
-       
+        <Route path="/doctor/:hhNumber/doctorform" element={<Doctorform />} /> {/* <-- Add this */}
+        <Route path="/doctor/:hhNumber/DoctorViewPatient" element={<DoctorViewPatient />} /> {/* <-- Add this */}
       </Routes>
       <Footer></Footer>
     </BrowserRouter>

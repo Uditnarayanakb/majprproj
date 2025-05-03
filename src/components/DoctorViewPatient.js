@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import Web3 from "web3";
 import PatientRegistration from "../build/contracts/PatientRegistration.json";
 import NavBar_Logout from "./NavBar_Logout";
+import { useNavigate, useParams } from "react-router-dom";
 
-function DoctorViewPatient({ hhNumber }) {
+function DoctorViewPatient() {
+  const { hhNumber } = useParams();
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
   const [patientDetails, setPatientDetails] = useState(null);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const init = async () => {
@@ -26,13 +29,21 @@ function DoctorViewPatient({ hhNumber }) {
 
           // Fetch patient details
           const details = await contractInstance.methods.getPatientDetails(hhNumber).call();
-          setPatientDetails(details);
+
+          // Defensive: Check if details are valid (adjust field as per your contract)
+          if (!details || !details.name || details.name === "") {
+            setError("Patient not found or not registered.");
+            setPatientDetails(null);
+          } else {
+            setPatientDetails(details);
+          }
         } else {
           setError("Please install MetaMask extension");
         }
       } catch (err) {
         console.error("Error fetching patient details:", err);
         setError("Error fetching patient details");
+        setPatientDetails(null);
       }
     };
 
@@ -76,26 +87,29 @@ function DoctorViewPatient({ hhNumber }) {
             <div className="flex justify-center space-x-6 mt-8">
               <button
                 className="px-6 py-3 bg-teal-500 hover-bg-gray-600 text-white rounded-lg focus:outline-none focus:ring focus:ring-teal-400 transition duration-300"
-                onClick={() => console.log("View Record clicked")}
+                onClick={() => navigate(`/patient/${hhNumber}/viewrecords`)}
               >
                 View Record
               </button>
               <button
                 className="px-6 py-3 bg-teal-500 hover-bg-gray-600 text-white rounded-lg focus:outline-none focus:ring focus:ring-teal-400 transition duration-300"
-                onClick={() => console.log("Prescription Consultancy clicked")}
+                onClick={() => navigate(`/doctor/${hhNumber}/doctorform`)}
               >
                 Prescription Consultancy
               </button>
               <button
                 className="px-6 py-3 bg-teal-500 hover-bg-gray-600 text-white rounded-lg focus:outline-none focus:ring focus:ring-teal-400 transition duration-300"
-                onClick={() => window.location.reload()} // Close and reload the page
+                onClick={() => {
+                  navigate(`/doctor/${hhNumber}/patientlist`);
+                  window.location.reload();
+                }}
               >
                 Close
               </button>
             </div>
           </div>
         ) : (
-          <p className="text-center text-2xl">Loading patient details...</p>
+          !error && <p className="text-center text-2xl">Loading patient details...</p>
         )}
       </div>
     </div>

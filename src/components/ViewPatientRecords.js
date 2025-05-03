@@ -108,7 +108,10 @@ function ViewPatientRecords() {
         <div className="flex justify-center mt-8">
           <button
             className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-300"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(-1)
+              
+            }
+            
           >
             Back
           </button>

@@ -219,4 +219,31 @@ contract PatientRegistration {
         isDoctorRegistered[doctorHhNumber] = true;
         // Optionally, store more doctor details here
     }
+
+    function addPrescription(
+        string memory _hhNumber,
+        string memory _diagnosis,
+        string memory _prescription,
+        string memory _doctor
+    ) public {
+        require(isPatientRegistered[_hhNumber], "Patient not registered");
+
+        uint recordId = patientRecords[_hhNumber].length + 1;
+        string memory currentDate = ""; // Optionally pass date from frontend
+
+        // Combine diagnosis and prescription into description
+        string memory description = string(
+            abi.encodePacked("Diagnosis: ", _diagnosis, "; Prescription: ", _prescription)
+        );
+
+        Record memory newRecord = Record({
+            id: recordId,
+            date: currentDate,
+            description: description,
+            doctor: _doctor
+        });
+
+        patientRecords[_hhNumber].push(newRecord);
+        emit RecordAdded(_hhNumber, recordId, currentDate, _doctor);
+    }
 }
