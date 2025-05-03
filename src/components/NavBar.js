@@ -13,8 +13,7 @@ const NavBar = () => {
           <div className="shrink-0">
             <img
               className="h-16 w-auto my-[17px]"
-              src={logo}
-              alt="Logo"
+
               onClick={() => navigate("/")}
             />
           </div>
@@ -25,7 +24,7 @@ const NavBar = () => {
               className="text-2xl sm:text-3xl lg:text-4xl font-semibold cursor-pointer"
               onClick={() => navigate("/")}
             >
-              Secure Electronic Health Records
+              MedBridge
             </span>
           </div>
 
@@ -37,12 +36,15 @@ const NavBar = () => {
             >
               Home
             </button>
-            <button
+
+
+            {/* here is the about us*/}
+            {/* <button
               className="text-lg px-3 py-1.5 rounded-md font-medium transition-transform duration-300 ease-in-out transform hover:scale-110"
               onClick={() => navigate("/AboutPage")}
             >
               About Us
-            </button>
+            </button> */}
             <button
               className="text-lg px-3 py-1.5 rounded-md font-medium transition-transform duration-300 ease-in-out transform hover:scale-110"
               onClick={() => navigate("/register")}
