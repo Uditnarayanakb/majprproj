@@ -24,21 +24,29 @@ contract PatientRegistration {
         string date;
         string description;
         string doctor;
+        string ipfsHash; // <-- Added for file support
+    }
+
+    struct DoctorInfo {
+        string doctorNumber;
+        string doctorName;
+        address walletAddress;
     }
 
     mapping(string => bool) public isPatientRegistered;
-    mapping(string => bool) public isDoctorRegistered;
     mapping(string => Patient) public patients;
     mapping(string => PatientList[]) private Dpermission;
     mapping(string => mapping(string => bool)) public doctorPermissions;
-    mapping(string => Record[]) private patientRecords; // Mapping to store patient records
-    mapping(string => string[]) private fileRecords; // Mapping to store file records
-    string[] private patientHhNumbers; // Array to store all registered hhNumbers
-    uint public registeredPatientCount; // Counter for registered patients
+    mapping(string => Record[]) private patientRecords;
+    mapping(string => DoctorInfo) private doctorInfoByNumber;
+    mapping(string => bool) private isDoctorInfoRegistered;
+
+    string[] private patientHhNumbers;
+    DoctorInfo[] private doctorInfoList;
+    uint public registeredPatientCount;
 
     event PatientRegistered(string hhNumber, string name, address walletAddress);
-    event RecordAdded(string hhNumber, uint recordId, string date, string doctor);
-    event RecordUploaded(string hhNumber, string cid);
+    event RecordAdded(string hhNumber, uint recordId, string date, string doctor, string ipfsHash); // <-- Updated
 
     function registerPatient(
         address _walletAddress,
@@ -67,8 +75,8 @@ contract PatientRegistration {
 
         patients[_hhNumber] = newPatient;
         isPatientRegistered[_hhNumber] = true;
-        patientHhNumbers.push(_hhNumber); // Add hhNumber to the list
-        registeredPatientCount++; // Increment the count
+        patientHhNumbers.push(_hhNumber);
+        registeredPatientCount++;
         emit PatientRegistered(_hhNumber, _name, _walletAddress);
     }
 
@@ -76,7 +84,6 @@ contract PatientRegistration {
         return isPatientRegistered[_hhNumber];
     }
 
-    // Add a function to validate patient's password
     function validatePassword(string memory _hhNumber, string memory _password) external view returns (bool) {
         require(isPatientRegistered[_hhNumber], "Patient not registered");
         return keccak256(abi.encodePacked(_password)) == keccak256(abi.encodePacked(patients[_hhNumber].password));
@@ -102,7 +109,6 @@ contract PatientRegistration {
         string memory _patientName
     ) external {
         require(!doctorPermissions[_patientNumber][_doctorNumber], "View Access already given to the Doctor!");
-        // Check if the patient number already exists in the list
         bool exists = false;
         for (uint i = 0; i < Dpermission[_doctorNumber].length; i++) {
             if (keccak256(abi.encodePacked(Dpermission[_doctorNumber][i].patient_number)) == keccak256(abi.encodePacked(_patientNumber))) {
@@ -110,8 +116,6 @@ contract PatientRegistration {
                 break;
             }
         }
-
-        // If the patient number does not exist, add it to the list
         if (!exists) {
             PatientList memory newRecord = PatientList(
                 _patientNumber,
@@ -122,12 +126,6 @@ contract PatientRegistration {
         doctorPermissions[_patientNumber][_doctorNumber] = true;
     }
 
-    function grantDoctorPermission(string memory patientHhNumber, string memory doctorHhNumber) public {
-        require(isPatientRegistered[patientHhNumber], "Patient not registered");
-        require(isDoctorRegistered[doctorHhNumber], "Doctor not registered");
-        doctorPermissions[patientHhNumber][doctorHhNumber] = true;
-    }
-
     function isPermissionGranted(string memory _patientNumber, string memory _doctorNumber) external view returns (bool) {
         return doctorPermissions[_patientNumber][_doctorNumber];
     }
@@ -136,6 +134,7 @@ contract PatientRegistration {
         return Dpermission[_doctorNumber];
     }
 
+    // Old version (for backward compatibility)
     function addPatientRecord(
         string memory _hhNumber,
         string memory _date,
@@ -149,11 +148,49 @@ contract PatientRegistration {
             id: recordId,
             date: _date,
             description: _description,
-            doctor: _doctor
+            doctor: _doctor,
+            ipfsHash: "" // No file for legacy calls
         });
 
         patientRecords[_hhNumber].push(newRecord);
-        emit RecordAdded(_hhNumber, recordId, _date, _doctor);
+        emit RecordAdded(_hhNumber, recordId, _date, _doctor, "");
+    }
+
+    // New version (with IPFS hash)
+    function addPatientRecord(
+        string memory _hhNumber,
+        string memory _date,
+        string memory _description,
+        string memory _doctor,
+        string memory _ipfsHash
+    ) external {
+        require(isPatientRegistered[_hhNumber], "Patient not registered");
+
+        uint recordId = patientRecords[_hhNumber].length + 1;
+        Record memory newRecord = Record({
+            id: recordId,
+            date: _date,
+            description: _description,
+            doctor: _doctor,
+            ipfsHash: _ipfsHash
+        });
+
+        patientRecords[_hhNumber].push(newRecord);
+        emit RecordAdded(_hhNumber, recordId, _date, _doctor, _ipfsHash);
+    }
+
+    function deletePatientRecord(string memory _hhNumber, uint _index) public {
+        require(isPatientRegistered[_hhNumber], "Patient not registered");
+        require(_index < patientRecords[_hhNumber].length, "Invalid record index");
+        // Only allow the patient or contract owner to delete (optional: add your own access control)
+        // require(msg.sender == patients[_hhNumber].walletAddress, "Not authorized");
+
+        // Move the last record to the deleted spot to maintain array continuity, then pop
+        uint lastIndex = patientRecords[_hhNumber].length - 1;
+        if (_index != lastIndex) {
+            patientRecords[_hhNumber][_index] = patientRecords[_hhNumber][lastIndex];
+        }
+        patientRecords[_hhNumber].pop();
     }
 
     function getPatientRecords(string memory _hhNumber) external view returns (Record[] memory) {
@@ -161,89 +198,44 @@ contract PatientRegistration {
         return patientRecords[_hhNumber];
     }
 
-    function uploadRecord(string memory hhNumber, string memory cid) public {
-        require(isPatientRegistered[hhNumber], "Patient not registered");
-        fileRecords[hhNumber].push(cid);
-        emit RecordUploaded(hhNumber, cid);
-    }
-
-    function getFileRecords(string memory hhNumber) public view returns (string[] memory) {
-        require(isPatientRegistered[hhNumber], "Patient not registered");
-        return fileRecords[hhNumber];
-    }
-
-    function deleteFileRecord(string memory hhNumber, uint index) public {
-        require(isPatientRegistered[hhNumber], "Patient not registered");
-        require(index < fileRecords[hhNumber].length, "Invalid index");
-        // Move the last element into the place to delete and pop
-        fileRecords[hhNumber][index] = fileRecords[hhNumber][fileRecords[hhNumber].length - 1];
-        fileRecords[hhNumber].pop();
-    }
-
     function getAllPatients() public view returns (Patient[] memory) {
         Patient[] memory allPatients = new Patient[](registeredPatientCount);
-
         for (uint i = 0; i < patientHhNumbers.length; i++) {
             allPatients[i] = patients[patientHhNumbers[i]];
         }
-
         return allPatients;
     }
 
     function removePatient(string memory hhNumber) public {
         require(isPatientRegistered[hhNumber], "Patient not registered");
-
-        // Delete the patient from the mapping
         delete patients[hhNumber];
         isPatientRegistered[hhNumber] = false;
-
-        // Find and remove the hhNumber from the patientHhNumbers array
         bool found = false;
         for (uint i = 0; i < patientHhNumbers.length; i++) {
             if (keccak256(abi.encodePacked(patientHhNumbers[i])) == keccak256(abi.encodePacked(hhNumber))) {
-                patientHhNumbers[i] = patientHhNumbers[patientHhNumbers.length - 1]; // Replace with the last element
-                patientHhNumbers.pop(); // Remove the last element
+                patientHhNumbers[i] = patientHhNumbers[patientHhNumbers.length - 1];
+                patientHhNumbers.pop();
                 found = true;
                 break;
             }
         }
-
         require(found, "Patient HH Number not found in the list");
-
-        // Decrement the registered patient count
         registeredPatientCount--;
     }
 
-    function registerDoctor(string memory doctorHhNumber) public {
-        require(!isDoctorRegistered[doctorHhNumber], "Doctor already registered");
-        isDoctorRegistered[doctorHhNumber] = true;
-        // Optionally, store more doctor details here
+    function registerDoctorInfo(
+        string memory _doctorNumber,
+        string memory _doctorName,
+        address _walletAddress
+    ) public {
+        require(!isDoctorInfoRegistered[_doctorNumber], "Doctor already registered");
+        DoctorInfo memory doc = DoctorInfo(_doctorNumber, _doctorName, _walletAddress);
+        doctorInfoByNumber[_doctorNumber] = doc;
+        isDoctorInfoRegistered[_doctorNumber] = true;
+        doctorInfoList.push(doc);
     }
 
-    function addPrescription(
-        string memory _hhNumber,
-        string memory _diagnosis,
-        string memory _prescription,
-        string memory _doctor
-    ) public {
-        require(isPatientRegistered[_hhNumber], "Patient not registered");
-
-        uint recordId = patientRecords[_hhNumber].length + 1;
-        string memory currentDate = ""; // Optionally pass date from frontend
-
-        // Combine diagnosis and prescription into description
-        string memory description = string(
-            abi.encodePacked("Diagnosis: ", _diagnosis, "; Prescription: ", _prescription)
-        );
-
-        Record memory newRecord = Record({
-            id: recordId,
-            date: currentDate,
-            description: description,
-            doctor: _doctor
-        });
-
-        patientRecords[_hhNumber].push(newRecord);
-        emit RecordAdded(_hhNumber, recordId, currentDate, _doctor);
+    function getAllDoctorInfo() public view returns (DoctorInfo[] memory) {
+        return doctorInfoList;
     }
 }

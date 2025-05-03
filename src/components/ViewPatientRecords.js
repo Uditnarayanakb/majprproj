@@ -27,9 +27,9 @@ function ViewPatientRecords() {
         setContract(contractInstance);
 
         try {
-          // Fetch file records (array of CIDs) from the smart contract
+          // Fetch file records
           const records = await contractInstance.methods
-            .getFileRecords(hhNumber)
+            .getPatientRecords(hhNumber)
             .call();
           setFileRecords(records);
         } catch (err) {
@@ -44,20 +44,12 @@ function ViewPatientRecords() {
     init();
   }, [hhNumber]);
 
-  // Helper to get a fake timestamp (since only CID is stored, unless you store timestamp too)
-  // If you store timestamps in your contract, replace this with the actual value.
-  const getFakeTimestamp = (index) => {
-    // For demo: just use the current time minus index*5 minutes
-    const date = new Date(Date.now() - index * 5 * 60 * 1000);
-    return date.toLocaleString();
-  };
-
   const handleDelete = async (index) => {
     if (!contract) return;
     try {
       await window.ethereum.request({ method: "eth_requestAccounts" });
       const accounts = await web3.eth.getAccounts();
-      await contract.methods.deleteFileRecord(hhNumber, index).send({ from: accounts[0], gas: 200000 });
+      await contract.methods.deletePatientRecord(hhNumber, index).send({ from: accounts[0], gas: 200000 });
       // Remove from UI
       setFileRecords((prev) => prev.filter((_, i) => i !== index));
     } catch (err) {
@@ -70,34 +62,39 @@ function ViewPatientRecords() {
     <div>
       <NavBar_Logout />
       <div className="bg-gradient-to-b from-black to-gray-800 text-white p-10 font-mono min-h-screen">
-        <h1 className="text-center text-3xl mb-6">Patient Uploaded Files</h1>
+        <h1 className="text-center text-3xl mb-6">Patient Files</h1>
         {error && <p className="text-red-500 text-center">{error}</p>}
         {fileRecords.length > 0 ? (
           <div className="space-y-4">
-            {fileRecords.map((cid, index) => (
+            {fileRecords.map((record, index) => (
               <div
                 key={index}
                 className="bg-gray-700 p-6 rounded-lg shadow-lg flex justify-between items-center"
               >
                 <div>
-                  <p className="text-lg font-bold">Record: {index + 1}</p>
-                  <p className="text-md">Uploaded: {getFakeTimestamp(index)}</p>
+                  <p className="text-lg font-bold">Record: {record.id}</p>
+                  <p className="text-md">Date: {record.date}</p>
+                  <p className="text-md">Description: {record.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition duration-300"
-                    onClick={() =>
-                      window.open(`https://ipfs.io/ipfs/${cid}`, "_blank")
-                    }
-                  >
-                    View
-                  </button>
-                  <button
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300"
-                    onClick={() => handleDelete(index)}
-                  >
-                    Delete
-                  </button>
+                  {record.ipfsHash && record.ipfsHash !== "" && (
+                    <>
+                      <button
+                        className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition duration-300"
+                        onClick={() =>
+                          window.open(`https://ipfs.io/ipfs/${record.ipfsHash}`, "_blank")
+                        }
+                      >
+                        View
+                      </button>
+                      <button
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300"
+                        onClick={() => handleDelete(index)}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -108,10 +105,7 @@ function ViewPatientRecords() {
         <div className="flex justify-center mt-8">
           <button
             className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-300"
-            onClick={() => navigate(-1)
-              
-            }
-            
+            onClick={() => navigate(-1)}
           >
             Back
           </button>

@@ -56,7 +56,6 @@ const UploadHR = () => {
     try {
       // Check if patient is registered
       const isRegistered = await contract.methods.isPatientRegistered(hhNumber).call();
-      console.log("Is patient registered?", isRegistered);
       if (!isRegistered) {
         setError("Patient is not registered.");
         setIsLoading(false);
@@ -83,9 +82,16 @@ const UploadHR = () => {
       const accounts = await web3.eth.getAccounts();
 
       // 3. Call smart contract to store the record
-      await contract.methods.uploadRecord(hhNumber, cid).send({
+      // Use the new addPatientRecord function with IPFS hash
+      await contract.methods.addPatientRecord(
+        hhNumber,
+        new Date().toISOString().slice(0, 10), // date
+        "Uploaded Health Record",               // description
+        accounts[0],                            // doctor/uploader address
+        cid                                     // IPFS hash
+      ).send({
         from: accounts[0],
-        gas: 300000 // You can increase this value if needed
+        gas: 300000
       });
 
       setSuccess("File uploaded to IPFS (Pinata) and saved on blockchain!");
@@ -104,6 +110,7 @@ const UploadHR = () => {
     setFile(null);
     setError(null);
     setSuccess(null);
+    navigate(-1); // Go back to previous route
   };
 
   return (

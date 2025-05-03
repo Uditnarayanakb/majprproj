@@ -90,7 +90,7 @@ const PatientDashBoard = () => {
             onClick={viewPastRecords}
             className="my-2 px-4 sm:px-8 py-4 sm:py-5 w-full sm:w-1/4 rounded-lg bg-teal-500 hover:bg-gray-600 transition-colors duration-300"
           >
-            View Past Records
+            Upload  Past Records
           </button>
           {/* <button
             onClick={grantPermissions}
